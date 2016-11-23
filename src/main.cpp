@@ -31,17 +31,24 @@
 #include <ThreadController.h>
 
 #include <SoftwareSerial.h>
-#include <ESP8266.h>
+#include <WiFiEsp.h>
+#include <WiFiEspUdp.h>
+
+//#include <ESP8266.h>
 
 #include "Battery.h"
 
 #define UDP_PORT	1234
 
-const char* ssid = "VTS";			//!< Ssid сети
-const char* password = "76543210";	//!< Пароль сети
+void printWifiStatus();
+
+char* ssid = "VTS";			//!< Ssid сети
+const char* pass = "76543210";	//!< Пароль сети
 
 //Wi-Fi-manager Object
-ESP8266	 *wifi;
+//ESP8266	 *wifi;
+WiFiEspUDP *wifi;
+int status = WL_IDLE_STATUS;
 
 //Battery state checker thread
 Battery *batCheck;
@@ -115,7 +122,33 @@ void setup ()
 	Timer1.start();
 
 	//	Setting up WiFi module
-	wifi = new ESP8266(Serial,19200);
+	wifi = new WiFiEspUDP();
+	WiFi.init(&Serial);
+	// check for the presence of the shield:
+	if (WiFi.status() == WL_NO_SHIELD) {
+		Serial.println("WiFi shield not present");
+		// don't continue:
+		while (true);
+	}
+	while ( status != WL_CONNECTED)
+	{
+		Serial.print("Attempting to connect to WPA SSID: ");
+	    Serial.println(ssid);
+	    // Connect to WPA/WPA2 network
+	    status = WiFi.begin(ssid, pass);
+	}
+	Serial.println("Connected to wifi");
+	printWifiStatus();
+
+	Serial.println("\nStarting connection to server...");
+	// if you get a connection, report back via serial:
+	wifi->begin(UDP_PORT);
+
+	Serial.print("Listening on port ");
+	Serial.println(UDP_PORT);
+
+
+//	wifi->
 	String test;
 	debug.begin(9600);
 	//	Serial.begin(76800);
@@ -128,46 +161,6 @@ void setup ()
 
 	debug.print ("setup begin\r\n");
 	debug.print ("FW Version: ");
-	debug.println (wifi->getVersion().c_str());
-
-	if (wifi->setOprToStation())
-	{
-		debug.print ("to Station ok\r\n");
-	}
-	else
-	{
-		debug.print ("to Station err\r\n");
-	}
-
-	if (wifi->joinAP (ssid, password))
-	{
-		debug.print ("Join AP success\r\n");
-		debug.print ("IP: ");
-		debug.println (wifi->getLocalIP().c_str());
-	}
-	else
-	{
-		debug.print ("Join AP failure\r\n");
-	}
-
-	if (wifi->disableMUX())
-	{
-		debug.print("single ok\r\n");
-	}
-	else
-	{
-		debug.print("single err\r\n");
-	}
-
-	if (!wifi->registerUDP (currentIP, UDP_PORT))
-	{
-		debug.println("Cannot create UDP client connection!");
-	}
-	else
-	{
-		debug.print("UDP client started!\r\n");
-	}
-
 	debug.print("setup end\r\n");
 //	syncTimestamps();
 }
@@ -266,4 +259,21 @@ void loop ()
 //	debug.print (time_offset);
 //	return true;
 //}
+
+void printWifiStatus() {
+  // print the SSID of the network you're attached to:
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  // print your WiFi shield's IP address:
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+
+  // print the received signal strength:
+  long rssi = WiFi.RSSI();
+  Serial.print("signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
+}
 
